@@ -68,6 +68,7 @@ namespace SpaceCore.Patches
                 prefix: this.GetHarmonyMethod(nameof(Before_LoadDataToLocations))
             );
 
+            //fixme
             foreach (var method in SaveGamePatcher.GetLoadEnumeratorMethods())
             {
                 harmony.Patch(
@@ -76,13 +77,14 @@ namespace SpaceCore.Patches
                 );
             }
 
-            foreach (var method in SaveGamePatcher.GetSaveEnumeratorMethods())
-            {
-                harmony.Patch(
-                    original: method,
-                    transpiler: this.GetHarmonyMethod(nameof(Transpile_GetSaveEnumerator))
-                );
-            }
+            //fixme
+            //foreach (var method in SaveGamePatcher.GetSaveEnumeratorMethods())
+            //{
+            //    harmony.Patch(
+            //        original: method,
+            //        transpiler: this.GetHarmonyMethod(nameof(Transpile_GetSaveEnumerator))
+            //    );
+            //}
         }
 
         /// <summary>Get the <see cref="SaveGame.getLoadEnumerator"/> methods that should be patched.</summary>
@@ -109,7 +111,7 @@ namespace SpaceCore.Patches
                     }
                 }
             }
-            foreach (var meth in typeof(LoadGameMenu).GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static))
+            foreach (var meth in typeof(LoadGameMenu).GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
             {
                 if (meth.Name.Contains("<FindSaveGames>") && (meth.Name.Contains("TryReadSaveData") || meth.Name.Contains("TryReadSaveInfo")))
                 {
@@ -337,6 +339,8 @@ namespace SpaceCore.Patches
 
             try
             {
+                Console.WriteLine("try DeserializeProxy(stream, farmerPath, fromSaveGame)");
+                Console.WriteLine("farmerPath param: " + farmerPath);
                 // load XML
                 XmlDocument doc = new();
                 doc.Load(stream);
@@ -346,13 +350,20 @@ namespace SpaceCore.Patches
                 if (fromSaveGame)
                 {
                     farmerPath = Path.Combine(Constants.SavesPath, SaveGamePatcher.SerializerManager.LoadFileContext);
+                    Console.WriteLine("farmerPath set new: " + farmerPath);
                     string filename = typeof(SType) == typeof(Farmer)
                         ? SaveGamePatcher.SerializerManager.FarmerFilename
                         : SaveGamePatcher.SerializerManager.Filename;
+                    Console.WriteLine("file name: " + filename);
                     filePath = Path.Combine(farmerPath, filename);
+                    Console.WriteLine("save file path in if: " + filePath);
                 }
                 else
+                {
                     filePath = Path.Combine(Path.GetDirectoryName(farmerPath), SaveGamePatcher.SerializerManager.FarmerFilename);
+                    Console.WriteLine("save file path in else: " + filePath);
+                }
+
 
                 // restore mod nodes
                 OptimizedModNodeList modNodes = OptimizedModNodeList.LoadFromFile(filePath);
@@ -361,7 +372,10 @@ namespace SpaceCore.Patches
 
                 // deserialize XML
                 using var reader = new XmlTextReader(new StringReader(doc.OuterXml));
-                return serializer.Deserialize(reader);
+                Console.WriteLine("try Deserialize");
+                object? result = serializer.Deserialize(reader);
+                Console.WriteLine("result: " + result);
+                return result;
             }
             catch (Exception e)
             {
@@ -399,6 +413,8 @@ namespace SpaceCore.Patches
             return false;
         }
 
+        //need to do
+        //need to do
         private static void SerializeProxy(XmlWriter origWriter, object obj)
         {
             //Log.trace( "Start serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );
@@ -441,7 +457,7 @@ namespace SpaceCore.Patches
 
             foreach (var insn in insns)
             {
-                if ( insn.operand is MethodInfo meth && meth == AccessTools.Method( typeof(SaveSerializer), nameof(SaveSerializer.GetSerializer ) ) )
+                if (insn.operand is MethodInfo meth && meth == AccessTools.Method(typeof(SaveSerializer), nameof(SaveSerializer.GetSerializer)))
                 {
                     insn.operand = AccessTools.Method(typeof(RedirectGetSerializerForNonWindowsPatch1), nameof(RedirectGetSerializerForNonWindowsPatch1.GetSerializerProxy));
                 }
