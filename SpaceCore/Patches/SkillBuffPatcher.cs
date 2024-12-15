@@ -28,8 +28,11 @@ internal class SkillBuffPatcher : BasePatcher
             original: this.RequireMethod<BuffsDisplay>(nameof(BuffsDisplay.getClickableComponents)),
             postfix: this.GetHarmonyMethod(nameof(After_BuffsDisplay_GetClickableComponents))
         );
+
+        return;
+        //fixme
         harmony.Patch(
-            original: this.RequireMethod<IClickableMenu>(nameof(IClickableMenu.drawHoverText), new Type[] { typeof(SpriteBatch), typeof(StringBuilder), typeof(SpriteFont), typeof(int), typeof(int), typeof(int), typeof(string), typeof(int), typeof(string[]), typeof(Item), typeof(int), typeof(string), typeof(int), typeof(int), typeof(int), typeof(float), typeof(CraftingRecipe), typeof(List<Item>), typeof(Texture2D), typeof(Rectangle?), typeof(Color?), typeof(Color?), typeof( float ), typeof( int ), typeof( int ) }),
+            original: this.RequireMethod<IClickableMenu>(nameof(IClickableMenu.drawHoverText), new Type[] { typeof(SpriteBatch), typeof(StringBuilder), typeof(SpriteFont), typeof(int), typeof(int), typeof(int), typeof(string), typeof(int), typeof(string[]), typeof(Item), typeof(int), typeof(string), typeof(int), typeof(int), typeof(int), typeof(float), typeof(CraftingRecipe), typeof(List<Item>), typeof(Texture2D), typeof(Rectangle?), typeof(Color?), typeof(Color?), typeof(float), typeof(int), typeof(int) }),
             transpiler: this.GetHarmonyMethod(nameof(Transpile_IClickableMenu_DrawHoverText))
         );
     }
@@ -49,12 +52,12 @@ internal class SkillBuffPatcher : BasePatcher
             yield break;
         }
         // If there is custom data, find the matching buff to wrap.
-        foreach ( var buffData in data.Buffs )
+        foreach (var buffData in data.Buffs)
         {
             if (buffData.CustomFields?.Any(b => b.Key.StartsWith("spacechase.SpaceCore.SkillBuff.") ||
                                                 b.Key.StartsWith("spacechase0.SpaceCore.SkillBuff.") ||
                                                 b.Key.StartsWith("spacechase0.SpaceCore/HealthRegeneration") ||
-                                                b.Key.StartsWith("spacechase0.SpaceCore/StaminaRegeneration") ) ?? false)
+                                                b.Key.StartsWith("spacechase0.SpaceCore/StaminaRegeneration")) ?? false)
             {
                 Buff matchingBuff = null;
                 string id = buffData.BuffId;
@@ -70,7 +73,8 @@ internal class SkillBuffPatcher : BasePatcher
                 if (matchingBuff != null)
                 {
                     yield return new Skills.SkillBuff(matchingBuff, id, buffData.CustomFields);
-                } else
+                }
+                else
                 {
 
                     float durationMultiplier = ((__instance.Quality != 0) ? 1.5f : 1f);
@@ -221,7 +225,7 @@ internal class SkillBuffPatcher : BasePatcher
             return width;
         }
 
-        foreach ( var buffData in data.Buffs )
+        foreach (var buffData in data.Buffs)
         {
             if (buffData.CustomFields is null)
                 continue;

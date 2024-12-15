@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -31,6 +32,10 @@ namespace SpaceCore.Patches
         /// <inheritdoc />
         public override void Apply(Harmony harmony, IMonitor monitor)
         {
+            //fixme
+            Console.WriteLine("skip apply ForgeMenuPatcher");
+            return;
+
             harmony.Patch(
                 original: this.RequireMethod<ForgeMenu>(nameof(ForgeMenu.GenerateHighlightDictionary)),
                 postfix: this.GetHarmonyMethod(nameof(After_GenerateHighlightDictionary))

@@ -8,7 +8,8 @@
     <Description>The space-iest of cores. (Framework mod)</Description>
     <Version>1.27.0</Version>
     <UpdateKeys>Nexus:1348</UpdateKeys>
-    <Version_AppendConfiguration>false</Version_AppendConfiguration> <!-- Otherwise mods get confused about having 1.13.0-Debug, but needing 1.13.0 or newer -->
+    <Version_AppendConfiguration>false</Version_AppendConfiguration>
+    <!-- Otherwise mods get confused about having 1.13.0-Debug, but needing 1.13.0 or newer -->
 
     <TargetFramework>net6.0</TargetFramework>
 
@@ -43,4 +44,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="&quot;$(ProjectDir)PostBuild.cmd&quot;" />
+  </Target>
+
 </Project>

@@ -360,10 +360,10 @@ namespace SpaceCore.VanillaAssetExpansion
         }
     }
 
-    [HarmonyPatch(typeof(Farmer), nameof(Farmer.couldInventoryAcceptThisItem), new Type[] { typeof( Item ) } )]
+    [HarmonyPatch(typeof(Farmer), nameof(Farmer.couldInventoryAcceptThisItem), [typeof(Item), typeof(bool)])]
     public static class FarmerAlwaysAcceptVirtualCurrencyPatch1
     {
-        public static bool Prefix(Item item, ref bool __result)
+        public static bool Prefix(Item item, bool message_if_full, ref bool __result)
         {
             if (item.QualifiedItemId.StartsWith("(O)") && VanillaAssetExpansion.virtualCurrencies.ContainsKey(item.ItemId))
             {
@@ -374,7 +374,7 @@ namespace SpaceCore.VanillaAssetExpansion
         }
     }
 
-    [HarmonyPatch(typeof(Farmer), nameof(Farmer.couldInventoryAcceptThisItem), new Type[] { typeof(string), typeof( int ), typeof( int ) })]
+    [HarmonyPatch(typeof(Farmer), nameof(Farmer.couldInventoryAcceptThisItem), new Type[] { typeof(string), typeof(int), typeof(int) })]
     public static class FarmerAlwaysAcceptVirtualCurrencyPatch2
     {
         public static bool Prefix(string id, int stack, int quality, ref bool __result)

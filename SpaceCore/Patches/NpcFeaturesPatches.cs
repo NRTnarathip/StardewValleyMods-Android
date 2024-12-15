@@ -57,8 +57,13 @@ namespace SpaceCore.Patches
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
         {
             LocalBuilder scale = generator.DeclareLocal(typeof(Vector2));
-            LocalBuilder scaleX = generator.DeclareLocal(typeof(float));
-            LocalBuilder scaleY = generator.DeclareLocal(typeof(float));
+
+            //bug here
+            LocalBuilder scaleX = generator.DeclareLocal(typeof(int));
+            LocalBuilder scaleY = generator.DeclareLocal(typeof(int));
+            //original
+            //LocalBuilder scaleX = generator.DeclareLocal(typeof(float));
+            //LocalBuilder scaleY = generator.DeclareLocal(typeof(float));
             LocalBuilder gradColor = generator.DeclareLocal(typeof(Color));
 
             var orig = new List<CodeInstruction>(instructions);
@@ -257,22 +262,23 @@ namespace SpaceCore.Patches
                 typeof(NPC).GetMethod(nameof(NPC.dayUpdate)),
             };
 
-            var st = new System.Diagnostics.StackTrace();
-            for (int i = 0; i < st.FrameCount; ++i) // Originally had 7 instead of FrameCount, but some mods interfere so we need to check further
-            {
-                var meth = st.GetFrame(i).GetMethod();
-                foreach (var checkMeth in meths)
-                {
-                    // When someone patches a method the method name changes due to SMAPI's custom fork of Harmony, and so the methodinfo doesn't match.
-                    // This is a workaround
-                    // Excuse the liberal use of ? - I was tired and frustrated
-                    if ((meth?.DeclaringType == checkMeth?.DeclaringType || (meth?.Name?.Contains(checkMeth?.DeclaringType?.FullName ?? "qwerqwer") ?? false)) && (meth?.Name?.Contains(checkMeth?.Name ?? "asdfasdf") ?? false))
-                    {
-                        __result = false;
-                        return;
-                    }
-                }
-            }
+            //fixme, not sure about stacktrace in here
+            //var st = new System.Diagnostics.StackTrace();
+            //for (int i = 0; i < st.FrameCount; ++i) // Originally had 7 instead of FrameCount, but some mods interfere so we need to check further
+            //{
+            //    var meth = st.GetFrame(i).GetMethod();
+            //    foreach (var checkMeth in meths)
+            //    {
+            //        // When someone patches a method the method name changes due to SMAPI's custom fork of Harmony, and so the methodinfo doesn't match.
+            //        // This is a workaround
+            //        // Excuse the liberal use of ? - I was tired and frustrated
+            //        if ((meth?.DeclaringType == checkMeth?.DeclaringType || (meth?.Name?.Contains(checkMeth?.DeclaringType?.FullName ?? "qwerqwer") ?? false)) && (meth?.Name?.Contains(checkMeth?.Name ?? "asdfasdf") ?? false))
+            //        {
+            //            __result = false;
+            //            return;
+            //        }
+            //    }
+            //}
         }
     }
 

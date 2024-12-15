@@ -610,7 +610,10 @@ internal static class Rescheduler
 
 #endif
 
-            Log.Verbose(new StackTrace().ToString());
+            //fixme
+            //crash in here if you use StackTrace inside HarmonyPatch method
+            //Log.Verbose(new StackTrace().ToString());
+
             ClearCache();
 
             for (int i = 1; i <= Game1.netWorldState.Value.HighestPlayerLimit; i++)
