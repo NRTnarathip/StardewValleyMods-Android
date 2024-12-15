@@ -9,4 +9,4 @@ if errorlevel 1 (
 
 adb push "bin/Release/SpaceCore.dll" "/storage/emulated/0/Android/data/%AppName%/files/Mods/SpaceCore"
 
-adb shell am start %AppName%"/crc64e91f1276c636690c.LauncherActivity"
+adb shell am start -n %AppName%"/crc64e91f1276c636690c.LauncherActivity" --ez "IsClickStartGame" true

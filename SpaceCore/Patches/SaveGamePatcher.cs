@@ -78,13 +78,13 @@ namespace SpaceCore.Patches
             }
 
             //fixme
-            //foreach (var method in SaveGamePatcher.GetSaveEnumeratorMethods())
-            //{
-            //    harmony.Patch(
-            //        original: method,
-            //        transpiler: this.GetHarmonyMethod(nameof(Transpile_GetSaveEnumerator))
-            //    );
-            //}
+            foreach (var method in SaveGamePatcher.GetSaveEnumeratorMethods())
+            {
+                harmony.Patch(
+                    original: method,
+                    transpiler: this.GetHarmonyMethod(nameof(Transpile_GetSaveEnumerator))
+                );
+            }
         }
 
         /// <summary>Get the <see cref="SaveGame.getLoadEnumerator"/> methods that should be patched.</summary>
@@ -438,8 +438,23 @@ namespace SpaceCore.Patches
                 ? SaveGamePatcher.SerializerManager.FarmerFilename
                 : SaveGamePatcher.SerializerManager.Filename;
 
+            //fixme
+            //https://github.com/NRTnarathip/ImproveGame/blob/850735fd3936375e5217a349c5e56f62e6f12833/SpaceCore/SpaceCoreCrashFix.cs#L176
+
+            string saveGameName = Game1.GetSaveGameName();
+            string filenameNoTmpString = saveGameName + "_" + Game1.uniqueIDForThisGame;
+            string savesPath = AccessTools.Field(typeof(Game1), "savesPath").GetValue(null) as string;
+            string saveGameFolderFullPath = Path.Combine(savesPath, filenameNoTmpString);
+            if (Directory.Exists(saveGameFolderFullPath) is false)
+                Directory.CreateDirectory(saveGameFolderFullPath);
+
+            Console.WriteLine("On SerializeProxy: obj: " + obj);
+            Console.WriteLine("filename: " + filename);
+            Console.WriteLine("CurrentSavePath: " + Constants.CurrentSavePath);
+            string writeTextAtFilePath = Path.Combine(saveGameFolderFullPath, filename);
+            Console.WriteLine("writeTextAtFilePath: " + writeTextAtFilePath);
             File.WriteAllText(
-                Path.Combine(Constants.CurrentSavePath, filename),
+                writeTextAtFilePath,
                 JsonConvert.SerializeObject(modNodes)
             );
             //Log.trace( "Mid serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );
