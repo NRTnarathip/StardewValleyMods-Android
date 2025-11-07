@@ -68,7 +68,6 @@ namespace SpaceCore.Patches
                 prefix: this.GetHarmonyMethod(nameof(Before_LoadDataToLocations))
             );
 
-            //fixme
             foreach (var method in SaveGamePatcher.GetLoadEnumeratorMethods())
             {
                 harmony.Patch(
@@ -77,7 +76,6 @@ namespace SpaceCore.Patches
                 );
             }
 
-            //fixme
             foreach (var method in SaveGamePatcher.GetSaveEnumeratorMethods())
             {
                 harmony.Patch(

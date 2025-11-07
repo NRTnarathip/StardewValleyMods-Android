@@ -47,6 +47,7 @@ using StardewValley.TokenizableStrings;
 using SpaceCore.Dungeons;
 using System.Collections.ObjectModel;
 using SpaceCore.Guidebooks;
+using System.Diagnostics;
 
 namespace SpaceCore
 {
@@ -169,8 +170,21 @@ namespace SpaceCore
         *********/
         /// <summary>The mod entry point, called after the mod is first loaded.</summary>
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
+        static SpaceCore()
+        {
+            Console.WriteLine("Init type SpaceCore");
+            Console.WriteLine("enable mono log level");
+            Environment.SetEnvironmentVariable("MONO_LOG_LEVEL", "debug");
+            Environment.SetEnvironmentVariable("MONO_LOG_MASK", "all");
+        }
+
         public override void Entry(IModHelper helper)
         {
+            //works fine
+            //Console.WriteLine("SpaeceCore try print stack trace");
+            //string stack = new StackTrace().ToString();
+            //Console.WriteLine(stack);
+
             this.LegacyDataMigrator = new LegacyDataMigrator(helper.Data, this.Monitor);
 
             I18n.Init(helper.Translation);
@@ -179,7 +193,8 @@ namespace SpaceCore
             Log.Monitor = this.Monitor;
             this.Config = helper.ReadConfig<Configuration>();
 
-            GatherLocals();
+            //fixme
+            //GatherLocals();
 
             WarpPathfindingCache.IgnoreLocationNames.Add("VolcanoEntrance");
 
@@ -234,7 +249,7 @@ namespace SpaceCore
                 {
                     foreach (var action in trigger.Actions)
                     {
-                        if ( !TriggerActionManager.TryRunAction(action, manualContext, out string error, out Exception e) )
+                        if (!TriggerActionManager.TryRunAction(action, manualContext, out string error, out Exception e))
                         {
                             Log.Error($"Trigger action {trigger.Data.Id} failed: {error} {e}");
                         }
@@ -269,7 +284,7 @@ namespace SpaceCore
 
             TriggerActionManager.RegisterAction("spacechase0.SpaceCore_PlaySound", (string[] args, TriggerActionContext ctx, out string error) =>
             {
-                if ( args.Length < 2 )
+                if (args.Length < 2)
                 {
                     error = "Not enough arguments";
                     return false;
@@ -284,7 +299,7 @@ namespace SpaceCore
 
             TriggerActionManager.RegisterAction("spacechase0.SpaceCore_ShowHudMessage", (string[] args, TriggerActionContext ctx, out string error) =>
             {
-                if ( args.Length < 2 )
+                if (args.Length < 2)
                 {
                     error = "Not enough arguments";
                     return false;
@@ -296,7 +311,7 @@ namespace SpaceCore
                 }
 
                 error = null;
-                Game1.addHUDMessage(new HUDMessage(TokenParser.ParseText(args[1])) { noIcon = item == null, messageSubject = item});
+                Game1.addHUDMessage(new HUDMessage(TokenParser.ParseText(args[1])) { noIcon = item == null, messageSubject = item });
                 return true;
             });
 
@@ -412,7 +427,7 @@ namespace SpaceCore
 
                         if (!ctx.Location.terrainFeatures.TryGetValue(tile + new Vector2(ix, iy), out var tf) || tf is not HoeDirt hd || hd.crop == null)
                             continue;
-                        
+
                         if (hd.crop.netSeedIndex.Value == cropSeedId && hd.crop.currentPhase.Value == hd.crop.phaseDays.Count - 1)
                             return true;
                     }
@@ -723,7 +738,7 @@ namespace SpaceCore
                         ;// Log.Debug("wat");
                 };
                 Game1.currentLocation.createQuestionDialogue(I18n.InteractionWith(npc.displayName), responses.ToArray(), "advanced-social-interaction");
-                
+
             }
         }
 
@@ -737,7 +752,7 @@ namespace SpaceCore
                 return false;
             }
 
-            return string.Equals( str1, str2, caseSensitive ? StringComparison.InvariantCulture : StringComparison.InvariantCultureIgnoreCase );
+            return string.Equals(str1, str2, caseSensitive ? StringComparison.InvariantCulture : StringComparison.InvariantCultureIgnoreCase);
         }
 
         private Api apiReturned;
@@ -791,9 +806,9 @@ namespace SpaceCore
                     else
                     {
                         f.Status = FriendshipStatus.Dating;
-                        Game1.Multiplayer.globalChatInfoMessage("Dating", Game1.player.Name, DataLoader.Characters( Game1.content )[ args[ 1 ] ].DisplayName);
+                        Game1.Multiplayer.globalChatInfoMessage("Dating", Game1.player.Name, DataLoader.Characters(Game1.content)[args[1]].DisplayName);
                     }
-                    }
+                }
             }
             finally
             {
@@ -804,7 +819,7 @@ namespace SpaceCore
         {
             try
             {
-                if ( args.Length < 4 )
+                if (args.Length < 4)
                 {
                     Log.Warn("Not enough arguments for setEngaged event command");
                 }
@@ -895,7 +910,7 @@ namespace SpaceCore
                     alphaFade = 0.0075f,
                     delayBeforeAnimationStart = 20,
                     shakeIntensity = 1f,
-                    initialPosition = new Vector2(tx,ty)*Game1.tileSize + new Vector2(64f, -96f),
+                    initialPosition = new Vector2(tx, ty) * Game1.tileSize + new Vector2(64f, -96f),
                     xPeriodic = true,
                     xPeriodicLoopTime = 1000f,
                     xPeriodicRange = 4f,
@@ -1121,7 +1136,7 @@ namespace SpaceCore
             {
                 cp.RegisterToken(ModManifest, "CurrentlyInEvent", () =>
                 {
-                    if (!Context.IsWorldReady )
+                    if (!Context.IsWorldReady)
                         return null;
 
                     return new string[] { Game1.CurrentEvent != null ? "true" : "false" };
@@ -1138,7 +1153,7 @@ namespace SpaceCore
                     if (!Context.IsWorldReady)
                         return null;
 
-                    return new string[] { Utility.getDaysOfBooksellerThisSeason().Contains(Game1.dayOfMonth)?"true":"false" };
+                    return new string[] { Utility.getDaysOfBooksellerThisSeason().Contains(Game1.dayOfMonth) ? "true" : "false" };
                 });
             }
         }
@@ -1154,12 +1169,12 @@ namespace SpaceCore
                 {
                     var spr = actor.Sprite;
                     var extra = spriteExtras.GetOrCreateValue(spr);
-                    if ( extra.grad != null )
+                    if (extra.grad != null)
                         extra.currGradInd = (extra.currGradInd + 1) % extra.grad.Length;
                 }
             }
 
-            if ( Game1.CurrentEvent == null && (currZoom != 1 || targetZoom != 1) )
+            if (Game1.CurrentEvent == null && (currZoom != 1 || targetZoom != 1))
             {
                 currZoom = targetZoom = 1;
                 zoomTimeRemaining = -1;
@@ -1204,8 +1219,8 @@ namespace SpaceCore
                     if (vp != this.shakeViewportPos)
                         this.preShakeViewportPos += (vp - this.shakeViewportPos);
 
-                    float angle = (float) Game1.random.NextDouble();
-                    shakeAmount = new Vector2( (int)(MathF.Cos(angle) * this.screenShakeIntensity), (int)(MathF.Sin(angle) * this.screenShakeIntensity));
+                    float angle = (float)Game1.random.NextDouble();
+                    shakeAmount = new Vector2((int)(MathF.Cos(angle) * this.screenShakeIntensity), (int)(MathF.Sin(angle) * this.screenShakeIntensity));
                     this.shakeViewportPos = this.preShakeViewportPos + this.shakeAmount;
                     Game1.viewport.X = (int)this.shakeViewportPos.X;
                     Game1.viewport.Y = (int)this.shakeViewportPos.Y;
@@ -1222,7 +1237,7 @@ namespace SpaceCore
                     {
                         int whole = (int)Math.Truncate(ext.staminaBuffer);
                         ext.staminaBuffer -= whole;
-                        Game1.player.Stamina += whole; 
+                        Game1.player.Stamina += whole;
                     }
                 }
                 if (ext.HealthRegen != 0)
