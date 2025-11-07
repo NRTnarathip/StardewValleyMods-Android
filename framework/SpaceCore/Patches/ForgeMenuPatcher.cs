@@ -31,6 +31,10 @@ namespace SpaceCore.Patches
         /// <inheritdoc />
         public override void Apply(Harmony harmony, IMonitor monitor)
         {
+            // not support on Android
+            if (Constants.TargetPlatform == GamePlatform.Android)
+                return;
+
             harmony.Patch(
                 original: this.RequireMethod<ForgeMenu>(nameof(ForgeMenu.GenerateHighlightDictionary)),
                 postfix: this.GetHarmonyMethod(nameof(After_GenerateHighlightDictionary))

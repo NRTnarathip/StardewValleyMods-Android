@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="$(SolutionDir)common.targets" />
   <Import Project="$(SolutionDir)documentation-generation.targets" />
   <Import Project="$(SolutionDir)shared\SpaceShared\SpaceShared.projitems" Label="Shared" />
@@ -8,14 +8,16 @@
     <Name>SpaceCore</Name>
     <UniqueId>spacechase0.$(AssemblyName)</UniqueId>
     <Description>The space-iest of cores. (Framework mod)</Description>
-    <Version>1.28.1</Version>
+    <Version>1.28.1-nrt.1</Version>
     <UpdateKeys>Nexus:1348</UpdateKeys>
-    <Version_AppendConfiguration>false</Version_AppendConfiguration> <!-- Otherwise mods get confused about having 1.13.0-Debug, but needing 1.13.0 or newer -->
+    <Version_AppendConfiguration>false</Version_AppendConfiguration>
+    <!-- Otherwise mods get confused about having 1.13.0-Debug, but needing 1.13.0 or newer -->
 
     <TargetFramework>net6.0</TargetFramework>
 
     <EnableHarmony>true</EnableHarmony>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableModDeploy>false</EnableModDeploy>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -45,4 +47,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="call &quot;$(ProjectDir)post-build.cmd&quot; || exit /b 0" />
+  </Target>
 </Project>

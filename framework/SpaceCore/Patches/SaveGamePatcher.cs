@@ -76,6 +76,7 @@ namespace SpaceCore.Patches
                 );
             }
 
+            // fixme
             foreach (var method in SaveGamePatcher.GetSaveEnumeratorMethods())
             {
                 harmony.Patch(
@@ -83,6 +84,7 @@ namespace SpaceCore.Patches
                     transpiler: this.GetHarmonyMethod(nameof(Transpile_GetSaveEnumerator))
                 );
             }
+
         }
 
         /// <summary>Get the <see cref="SaveGame.getLoadEnumerator"/> methods that should be patched.</summary>
@@ -109,7 +111,7 @@ namespace SpaceCore.Patches
                     }
                 }
             }
-            foreach (var meth in typeof(LoadGameMenu).GetMethods(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static))
+            foreach (var meth in typeof(LoadGameMenu).GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
             {
                 if (meth.Name.Contains("<FindSaveGames>") && (meth.Name.Contains("TryReadSaveData") || meth.Name.Contains("TryReadSaveInfo")))
                 {
@@ -422,10 +424,22 @@ namespace SpaceCore.Patches
                 ? SaveGamePatcher.SerializerManager.FarmerFilename
                 : SaveGamePatcher.SerializerManager.Filename;
 
+            // fix for android
+            #region AndroidFix
+            string saveGameName = Game1.GetSaveGameName();
+            string filenameNoTmpString = saveGameName + "_" + Game1.uniqueIDForThisGame;
+            string savesPath = AccessTools.Field(typeof(Game1), "savesPath").GetValue(null) as string;
+            string saveGameFolderFullPath = Path.Combine(savesPath, filenameNoTmpString);
+            if (Directory.Exists(saveGameFolderFullPath) is false)
+                Directory.CreateDirectory(saveGameFolderFullPath);
+
+            string writeTextAtFilePath = Path.Combine(saveGameFolderFullPath, filename);
+
             File.WriteAllText(
-                Path.Combine(Constants.CurrentSavePath, filename),
+                writeTextAtFilePath,
                 JsonConvert.SerializeObject(modNodes)
             );
+            #endregion
             //Log.trace( "Mid serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );
             //Log.trace( "End serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );
         }
@@ -441,7 +455,7 @@ namespace SpaceCore.Patches
 
             foreach (var insn in insns)
             {
-                if ( insn.operand is MethodInfo meth && meth == AccessTools.Method( typeof(SaveSerializer), nameof(SaveSerializer.GetSerializer ) ) )
+                if (insn.operand is MethodInfo meth && meth == AccessTools.Method(typeof(SaveSerializer), nameof(SaveSerializer.GetSerializer)))
                 {
                     insn.operand = AccessTools.Method(typeof(RedirectGetSerializerForNonWindowsPatch1), nameof(RedirectGetSerializerForNonWindowsPatch1.GetSerializerProxy));
                 }
