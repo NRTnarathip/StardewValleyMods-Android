@@ -339,6 +339,8 @@ namespace SpaceCore.Patches
 
             try
             {
+                Console.WriteLine("try DeserializeProxy(stream, farmerPath, fromSaveGame)");
+                Console.WriteLine("farmerPath param: " + farmerPath);
                 // load XML
                 XmlDocument doc = new();
                 doc.Load(stream);
@@ -348,13 +350,20 @@ namespace SpaceCore.Patches
                 if (fromSaveGame)
                 {
                     farmerPath = Path.Combine(Constants.SavesPath, SaveGamePatcher.SerializerManager.LoadFileContext);
+                    Console.WriteLine("farmerPath set new: " + farmerPath);
                     string filename = typeof(SType) == typeof(Farmer)
                         ? SaveGamePatcher.SerializerManager.FarmerFilename
                         : SaveGamePatcher.SerializerManager.Filename;
+                    Console.WriteLine("file name: " + filename);
                     filePath = Path.Combine(farmerPath, filename);
+                    Console.WriteLine("save file path in if: " + filePath);
                 }
                 else
+                {
                     filePath = Path.Combine(Path.GetDirectoryName(farmerPath), SaveGamePatcher.SerializerManager.FarmerFilename);
+                    Console.WriteLine("save file path in else: " + filePath);
+                }
+
 
                 // restore mod nodes
                 OptimizedModNodeList modNodes = OptimizedModNodeList.LoadFromFile(filePath);
@@ -363,7 +372,10 @@ namespace SpaceCore.Patches
 
                 // deserialize XML
                 using var reader = new XmlTextReader(new StringReader(doc.OuterXml));
-                return serializer.Deserialize(reader);
+                Console.WriteLine("try Deserialize");
+                object? result = serializer.Deserialize(reader);
+                Console.WriteLine("result: " + result);
+                return result;
             }
             catch (Exception e)
             {
@@ -401,6 +413,8 @@ namespace SpaceCore.Patches
             return false;
         }
 
+        //need to do
+        //need to do
         private static void SerializeProxy(XmlWriter origWriter, object obj)
         {
             //Log.trace( "Start serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );

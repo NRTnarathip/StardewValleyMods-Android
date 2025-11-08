@@ -610,7 +610,42 @@ internal static class Rescheduler
 
 #endif
 
+            //fixme
+            //crash in here if you use StackTrace inside HarmonyPatch method
+            try
+            {
+                var thread = Thread.CurrentThread;
+                Console.WriteLine("current thread: " + thread.ManagedThreadId);
+                Console.WriteLine("My print stack on PrefixPopulateRoutes");
+                var stack = new StackTrace();
+                int frameCount = stack.FrameCount;
+                Console.WriteLine("frame count: " + frameCount);
+                for (int i = 0; i < frameCount; i++)
+                {
+                    Console.WriteLine("");
+                    Console.WriteLine($"frame: {i}");
+                    var frame = stack.GetFrame(i);
+                    Console.WriteLine("done get frame");
+                    Console.WriteLine("try get method");
+                    var method = frame.GetMethod();
+                    Console.WriteLine("method type: " + method.GetType());
+                    Console.WriteLine($"method: name {method.Name}");
+                    Console.WriteLine($"  reflected: {method.ReflectedType}");
+                    Console.WriteLine($"  FullyQualifiedName: {method.Module.FullyQualifiedName}");
+                    Console.WriteLine($"  member type: {method.MemberType}");
+                    Console.WriteLine($"  DeclaringType type: {method.DeclaringType}");
+                    Console.WriteLine($"  method.ToString(): " + method.ToString());
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("error on My try print stack");
+                Console.WriteLine(ex);
+            }
+
+            Console.WriteLine("original print stack on PrefixPopulateRoutes");
             Log.Verbose(new StackTrace().ToString());
+
             ClearCache();
 
             for (int i = 1; i <= Game1.netWorldState.Value.HighestPlayerLimit; i++)

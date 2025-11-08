@@ -93,13 +93,20 @@ namespace SpaceCore.Framework
             // it has the two attachment slots when you reload.
             if (SpaceCore.ModTypes.Any() || this.HasPyTk)
             {
-                Log.Trace($"Reinitializing serializers for {SpaceCore.ModTypes.Count} mod types...");
+                Log.Trace($"Debug Only Skip InitializeSerializer");
+                return;
 
+                Log.Trace($"Reinitializing serializers for {SpaceCore.ModTypes.Count} mod types...");
                 SaveGame.serializer = this.InitializeSerializer(typeof(SaveGame), this.VanillaMainTypes);
+                Console.WriteLine("done init SaveGame.serializer ");
                 SaveGame.farmerSerializer = this.InitializeSerializer(typeof(Farmer), this.VanillaFarmerTypes);
+                Console.WriteLine("done init SaveGame.farmerSerializer ");
                 SaveGame.locationSerializer = this.InitializeSerializer(typeof(GameLocation), this.VanillaGameLocationTypes);
+                Console.WriteLine("done init SaveGame.locationSerializer ");
                 SaveGame.descriptionElementSerializer = this.InitializeSerializer(typeof(DescriptionElement), this.VanillaDescriptionElementTypes);
+                Console.WriteLine("done init SaveGame.descriptionElementSerializer ");
                 SaveGame.legacyDescriptionElementSerializer = this.InitializeSerializer(typeof(DescriptionElement), this.VanillaLegacyDescriptionElementTypes);
+                Console.WriteLine("done init SaveGame.legacyDescriptionElementSerializer ");
             }
         }
 
