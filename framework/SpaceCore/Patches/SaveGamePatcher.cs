@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Serialization;
 using HarmonyLib;
@@ -17,6 +18,7 @@ using SpaceCore.Framework;
 using SpaceCore.Framework.Serialization;
 using SpaceShared;
 using StardewModdingAPI;
+using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Inventories;
 using StardewValley.Menus;
@@ -48,6 +50,8 @@ namespace SpaceCore.Patches
         /// <inheritdoc />
         public override void Apply(Harmony harmony, IMonitor monitor)
         {
+            SpaceCore.Instance.Helper.Events.GameLoop.UpdateTicked += GameLoop_Ticked;
+
             harmony.Patch(
                 original: AccessTools.Method(typeof(SaveSerializer), nameof(SaveSerializer.GetSerializer)),
                 prefix: this.GetHarmonyMethod(nameof(Before_GetSerializer))
@@ -87,6 +91,13 @@ namespace SpaceCore.Patches
 
         }
 
+        void GameLoop_Ticked(object sender, UpdateTickedEventArgs e)
+        {
+            // after event GameLaunched
+            SpaceCore.Instance.Helper.Events.GameLoop.UpdateTicked -= GameLoop_Ticked;
+            SerializerManager.RunTaskInitializeSerializers();
+        }
+
         /// <summary>Get the <see cref="SaveGame.getLoadEnumerator"/> methods that should be patched.</summary>
         public static IEnumerable<MethodBase> GetLoadEnumeratorMethods()
         {
@@ -118,14 +129,15 @@ namespace SpaceCore.Patches
                     ret.Add(meth);
                 }
             }
-            if (ret.Count != 4)
-            {
-                Log.Warn($"{nameof(GetLoadEnumeratorMethods)}: Found {ret.Count} transpiler targets, expected 4");
-                foreach (var meth in ret)
-                {
-                    Log.Trace("\t" + meth.Name + " " + meth);
-                }
-            }
+            // don't warning on android
+            //if (ret.Count != 4)
+            //{
+            //    Log.Warn($"{nameof(GetLoadEnumeratorMethods)}: Found {ret.Count} transpiler targets, expected 4");
+            //    foreach (var meth in ret)
+            //    {
+            //        Log.Trace("\t" + meth.Name + " " + meth);
+            //    }
+            //}
             ret.Add(AccessTools.Method(typeof(SaveGame), nameof(SaveGame.TryReadSaveFile)));
             return ret;
         }
@@ -339,8 +351,6 @@ namespace SpaceCore.Patches
 
             try
             {
-                Console.WriteLine("try DeserializeProxy(stream, farmerPath, fromSaveGame)");
-                Console.WriteLine("farmerPath param: " + farmerPath);
                 // load XML
                 XmlDocument doc = new();
                 doc.Load(stream);
@@ -350,18 +360,14 @@ namespace SpaceCore.Patches
                 if (fromSaveGame)
                 {
                     farmerPath = Path.Combine(Constants.SavesPath, SaveGamePatcher.SerializerManager.LoadFileContext);
-                    Console.WriteLine("farmerPath set new: " + farmerPath);
                     string filename = typeof(SType) == typeof(Farmer)
                         ? SaveGamePatcher.SerializerManager.FarmerFilename
                         : SaveGamePatcher.SerializerManager.Filename;
-                    Console.WriteLine("file name: " + filename);
                     filePath = Path.Combine(farmerPath, filename);
-                    Console.WriteLine("save file path in if: " + filePath);
                 }
                 else
                 {
                     filePath = Path.Combine(Path.GetDirectoryName(farmerPath), SaveGamePatcher.SerializerManager.FarmerFilename);
-                    Console.WriteLine("save file path in else: " + filePath);
                 }
 
 
@@ -372,9 +378,9 @@ namespace SpaceCore.Patches
 
                 // deserialize XML
                 using var reader = new XmlTextReader(new StringReader(doc.OuterXml));
-                Console.WriteLine("try Deserialize");
+                //Console.WriteLine("try Deserialize");
                 object? result = serializer.Deserialize(reader);
-                Console.WriteLine("result: " + result);
+                //Console.WriteLine("result: " + result);
                 return result;
             }
             catch (Exception e)
@@ -418,6 +424,8 @@ namespace SpaceCore.Patches
         private static void SerializeProxy(XmlWriter origWriter, object obj)
         {
             //Log.trace( "Start serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );
+            Log.Info("starting SerializeProxy for obj: " + obj);
+
             using var ms = new MemoryStream();
             using var writer = XmlWriter.Create(ms, new XmlWriterSettings { CloseOutput = false });
 
@@ -433,8 +441,11 @@ namespace SpaceCore.Patches
             doc.WriteContentTo(origWriter);
             // To fix serialize bug in mobile platform
             if (Constants.TargetPlatform == GamePlatform.Android)
+            {
                 origWriter.Flush();
-            string filename = serializer == SaveGame.farmerSerializer
+            }
+
+            string filename = obj.GetType() == typeof(Farmer)
                 ? SaveGamePatcher.SerializerManager.FarmerFilename
                 : SaveGamePatcher.SerializerManager.Filename;
 
@@ -445,7 +456,9 @@ namespace SpaceCore.Patches
             string savesPath = AccessTools.Field(typeof(Game1), "savesPath").GetValue(null) as string;
             string saveGameFolderFullPath = Path.Combine(savesPath, filenameNoTmpString);
             if (Directory.Exists(saveGameFolderFullPath) is false)
+            {
                 Directory.CreateDirectory(saveGameFolderFullPath);
+            }
 
             string writeTextAtFilePath = Path.Combine(saveGameFolderFullPath, filename);
 
@@ -454,6 +467,7 @@ namespace SpaceCore.Patches
                 JsonConvert.SerializeObject(modNodes)
             );
             #endregion
+            Log.Info("Saved serialize proxy for obj: " + obj);
             //Log.trace( "Mid serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );
             //Log.trace( "End serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );
         }

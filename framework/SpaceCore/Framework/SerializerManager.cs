@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Xml.Serialization;
 using SpaceCore.Patches;
 using SpaceShared;
@@ -10,6 +12,7 @@ using StardewValley.Characters;
 using StardewValley.Monsters;
 using StardewValley.Objects;
 using StardewValley.Quests;
+using StardewValley.SaveSerialization;
 using StardewValley.TerrainFeatures;
 
 namespace SpaceCore.Framework
@@ -78,52 +81,75 @@ namespace SpaceCore.Framework
             this.HasPyTk = modRegistry.IsLoaded("Platonymous.Toolkit");
         }
 
+        Task? m_taskInitializeSerializers;
+        public void RunTaskInitializeSerializers()
+        {
+            if (m_taskInitializeSerializers == null
+                && (SpaceCore.ModTypes.Any() || this.HasPyTk))
+            {
+                Log.Trace($"Reinitializing serializers for {SpaceCore.ModTypes.Count} mod types...");
+                m_taskInitializeSerializers = Task.Run(() =>
+                {
+                    var task1 = Task.Run(() =>
+                    {
+                        InitializeSerializer(typeof(SaveGame), this.VanillaMainTypes);
+                        Log.Info("done init SaveGame.serializer ");
+                    });
+                    var task2 = Task.Run(() =>
+                    {
+                        InitializeSerializer(typeof(Farmer), this.VanillaFarmerTypes);
+                        Log.Info("done init SaveGame.farmerSerializer ");
+                    });
+                    var task3 = Task.Run(() =>
+                    {
+                        InitializeSerializer(typeof(GameLocation), this.VanillaGameLocationTypes);
+                        Log.Info("done init SaveGame.locationSerializer ");
+                    });
+                    var task4 = Task.Run(() =>
+                    {
+                        InitializeSerializer(typeof(DescriptionElement), this.VanillaDescriptionElementTypes);
+                        Log.Info("done init SaveGame.descriptionElementSerializer ");
+                    });
+                    var task5 = Task.Run(() =>
+                    {
+                        InitializeSerializer(typeof(DescriptionElement), this.VanillaLegacyDescriptionElementTypes);
+                        Log.Info("done init SaveGame.legacyDescriptionElementSerializer ");
+                    });
+                    Task.WaitAll(task1, task2, task3, task4, task5);
+                });
+            }
+        }
         public void InitializeSerializers()
         {
             // skip if already initialized
             if (this.InitializedSerializers)
                 return;
+
+            // waiting for task
+            m_taskInitializeSerializers.Wait();
+
+            // done
             this.InitializedSerializers = true;
-
-            // add custom types to save serializers
-            //
-            // When PyTK is installed, this is needed even if we're not making any actual changes
-            // to the serializers. (Just notifying it doesn't seem to be enough.) This can be
-            // tested by installing Seed Bag, spawning one in the inventory, then checking whether
-            // it has the two attachment slots when you reload.
-            if (SpaceCore.ModTypes.Any() || this.HasPyTk)
-            {
-                Log.Trace($"Debug Only Skip InitializeSerializer");
-                return;
-
-                Log.Trace($"Reinitializing serializers for {SpaceCore.ModTypes.Count} mod types...");
-                SaveGame.serializer = this.InitializeSerializer(typeof(SaveGame), this.VanillaMainTypes);
-                Console.WriteLine("done init SaveGame.serializer ");
-                SaveGame.farmerSerializer = this.InitializeSerializer(typeof(Farmer), this.VanillaFarmerTypes);
-                Console.WriteLine("done init SaveGame.farmerSerializer ");
-                SaveGame.locationSerializer = this.InitializeSerializer(typeof(GameLocation), this.VanillaGameLocationTypes);
-                Console.WriteLine("done init SaveGame.locationSerializer ");
-                SaveGame.descriptionElementSerializer = this.InitializeSerializer(typeof(DescriptionElement), this.VanillaDescriptionElementTypes);
-                Console.WriteLine("done init SaveGame.descriptionElementSerializer ");
-                SaveGame.legacyDescriptionElementSerializer = this.InitializeSerializer(typeof(DescriptionElement), this.VanillaLegacyDescriptionElementTypes);
-                Console.WriteLine("done init SaveGame.legacyDescriptionElementSerializer ");
-            }
+            Game1.otherFarmers.Serializer = SaveSerializer.GetSerializer(typeof(Farmer));
         }
 
-        private Dictionary<Type, XmlSerializer> serializersAlreadyDone = new();
+        private ConcurrentDictionary<Type, XmlSerializer> serializersAlreadyDone = new();
 
+        object NotifyPyTK_Lock = new object();
         public XmlSerializer InitializeSerializer(Type baseType, Type[] extra = null)
         {
-            if (serializersAlreadyDone.ContainsKey(baseType))
-                return serializersAlreadyDone[baseType];
+            //Console.WriteLine($"on getting InitializeSerializer: baseType: {baseType}");
+            if (serializersAlreadyDone.TryGetValue(baseType, out var tryGetValue))
+                return tryGetValue;
 
             var types = extra?.Length > 0
                 ? extra.Concat(SpaceCore.ModTypes)
                 : SpaceCore.ModTypes;
 
             XmlSerializer serializer = new(baseType, types.ToArray());
-            serializersAlreadyDone.Add(baseType, serializer);
-            this.NotifyPyTk(serializer);
+            serializersAlreadyDone.TryAdd(baseType, serializer);
+            lock (NotifyPyTK_Lock)
+                this.NotifyPyTk(serializer);
             return serializer;
         }
 

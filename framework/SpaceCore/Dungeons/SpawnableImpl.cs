@@ -113,7 +113,7 @@ namespace SpaceCore.Dungeons
 
                 Random r = context.TriggerArgs.FirstOrDefault(o => o is Random) as Random;
 
-                var loc = GameStateQuery.Helpers.RequireLocation(args[2], context.TriggerArgs.Length > 0 ? (context.TriggerArgs[0] as GameLocation) : null );
+                var loc = GameStateQuery.Helpers.RequireLocation(args[2], context.TriggerArgs.Length > 0 ? (context.TriggerArgs[0] as GameLocation) : null);
                 List<Rectangle> includeRegions = new();
                 if (args.Length >= 4 && args[3] != "null")
                 {
@@ -203,7 +203,7 @@ namespace SpaceCore.Dungeons
             {
                 foreach (var pair in loc.Objects.Pairs.ToList())
                 {
-                    if (pair.Value.modData.TryGetValue("spacechase0.SpaceCore/DisappearOnDate", out string dayStr) && int.TryParse( dayStr, out int day))
+                    if (pair.Value.modData.TryGetValue("spacechase0.SpaceCore/DisappearOnDate", out string dayStr) && int.TryParse(dayStr, out int day))
                     {
                         if (Game1.Date.TotalDays + 1 == day)
                         {
@@ -302,7 +302,7 @@ namespace SpaceCore.Dungeons
             }
         }
 
-        private static Dictionary<SpawnableDefinitionData.SpawnableType, Func<GameLocation, string, SpawnableDefinitionData, Point, Random, bool>> spawnHandlers = new() 
+        private static Dictionary<SpawnableDefinitionData.SpawnableType, Func<GameLocation, string, SpawnableDefinitionData, Point, Random, bool>> spawnHandlers = new()
         {
             { SpawnableDefinitionData.SpawnableType.SetPiece, HandleSpawnable_SetPiece },
             { SpawnableDefinitionData.SpawnableType.Forageable, HandleSpawnable_Forageable },
@@ -389,7 +389,7 @@ namespace SpaceCore.Dungeons
                         xTile.Tiles.Tile t = paths.Tiles[new(sx + ix, sy + iy)];
                         if (t != null && t.Properties != null && t.Properties.TryGetValue("spacechase0.SpaceCore/TriggerSpawnGroup", out string spawnGroupId))
                         {
-                            DoSpawning(location, spawnGroupId, [new Rectangle( tile.X + ix, tile.Y + iy, 1, 1 )], []);
+                            DoSpawning(location, spawnGroupId, [new Rectangle(tile.X + ix, tile.Y + iy, 1, 1)], []);
                         }
                     }
                 }
@@ -406,7 +406,7 @@ namespace SpaceCore.Dungeons
             var itemSpawns = data.ForageableItemData.ToList();
             itemSpawns.RemoveAll(w => w.Value.Condition != null && !w.Value.Condition.Equals("true", StringComparison.InvariantCultureIgnoreCase) && !GameStateQuery.CheckConditions(w.Value.Condition, location: location, random: r));
             GenericSpawnItemDataWithCondition itemSpawn = itemSpawns.Choose(r);
-            if ( itemSpawn == null )
+            if (itemSpawn == null)
                 return false;
             Item item = ItemQueryResolver.TryResolveRandomItem(itemSpawn, new ItemQueryContext(location, null, r, "SpaceCore Spawnable Forage drops"));
 
@@ -442,7 +442,7 @@ namespace SpaceCore.Dungeons
             if (!IsTileValid(location, tile.ToVector2()))
                 return false;
 
-            StardewValley.Object obj = (StardewValley.Object) ItemRegistry.Create( ItemRegistry.ManuallyQualifyItemId( data.MinableObjectId, "(O)" ) );
+            StardewValley.Object obj = (StardewValley.Object)ItemRegistry.Create(ItemRegistry.ManuallyQualifyItemId(data.MinableObjectId, "(O)"));
             obj.modData.Add("spacechase0.SpaceCore/Minable", id);
             obj.MinutesUntilReady = data.MineableHealth;
 
@@ -457,7 +457,7 @@ namespace SpaceCore.Dungeons
             {
                 for (int iy = 0; iy < data.LargeMinableSizeY; ++iy)
                 {
-                    Vector2 spot = tile.ToVector2() + new Vector2( ix, iy );
+                    Vector2 spot = tile.ToVector2() + new Vector2(ix, iy);
                     if (!IsTileValid(location, spot))
                         return false;
                 }
@@ -645,7 +645,7 @@ namespace SpaceCore.Dungeons
 
         private static bool HandleSpawnable_Monster(GameLocation location, string id, SpawnableDefinitionData data, Point tile, Random r)
         {
-            var monster = MonsterFactory[ data.MonsterType ](tile.ToVector2() * Game1.tileSize, data.MonsterAdditionalData ?? new());
+            var monster = MonsterFactory[data.MonsterType](tile.ToVector2() * Game1.tileSize, data.MonsterAdditionalData ?? new());
 
             for (int ix = 0; ix < monster.GetBoundingBox().Width / Game1.tileSize; ++ix)
             {
@@ -737,7 +737,7 @@ namespace SpaceCore.Dungeons
 
             var tree = new FruitTree(data.FruitTreeType, 4);
             tree.modData.Add("spacechase0.SpaceCore/PreventSaplingDrop", "meow");
-            for ( int i = 0; i < 3; ++i )
+            for (int i = 0; i < 3; ++i)
                 tree.TryAddFruit();
 
             location.terrainFeatures[tile.ToVector2()] = tree;
@@ -796,7 +796,7 @@ namespace SpaceCore.Dungeons
     {
         public static bool Prefix(StardewValley.Object __instance, Tool t, ref bool __result)
         {
-            if (!__instance.modData.TryGetValue("spacechase0.SpaceCore/TillDropOverride", out string qualId ))
+            if (!__instance.modData.TryGetValue("spacechase0.SpaceCore/TillDropOverride", out string qualId))
                 return true;
 
             if (!__instance.isTemporarilyInvisible && t is Hoe)
@@ -861,7 +861,7 @@ namespace SpaceCore.Dungeons
     {
         public static bool Prefix(GameLocation __instance, string stoneId, int x, int y, Farmer who, Random r, ref bool __result)
         {
-            if (!__instance.Objects.TryGetValue(new(x, y), out var actualObj) || !actualObj.modData.TryGetValue( "spacechase0.SpaceCore/Minable", out string spawnId ) )
+            if (!__instance.Objects.TryGetValue(new(x, y), out var actualObj) || !actualObj.modData.TryGetValue("spacechase0.SpaceCore/Minable", out string spawnId))
                 return true;
             var spawnDefs = Game1.content.Load<Dictionary<string, SpawnableDefinitionData>>("spacechase0.SpaceCore/SpawnableDefinitions");
             var spawnDef = spawnDefs[spawnId];
@@ -1108,8 +1108,8 @@ namespace SpaceCore.Dungeons
 
             spriteBatch.Draw(sprite_sheet, Game1.GlobalToLocal(Game1.viewport, new Vector2(draw_x * 64f, draw_y * 64f + (float)y_offset)), data.GetSourceRect(), __instance.tint.Value, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order);
             Vector2 lidPosition = new Vector2(draw_x * 64f, draw_y * 64f + (float)y_offset);
-            
-            spriteBatch.Draw(sprite_sheet, Game1.GlobalToLocal(Game1.viewport, lidPosition), data.GetSourceRect( 0, currentLidFrame), __instance.tint.Value, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order + 1E-05f);
+
+            spriteBatch.Draw(sprite_sheet, Game1.GlobalToLocal(Game1.viewport, lidPosition), data.GetSourceRect(0, currentLidFrame), __instance.tint.Value, 0f, Vector2.Zero, 4f, SpriteEffects.None, base_sort_order + 1E-05f);
 
             return false;
         }
