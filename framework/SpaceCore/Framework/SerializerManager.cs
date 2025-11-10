@@ -84,8 +84,7 @@ namespace SpaceCore.Framework
         Task? m_taskInitializeSerializers;
         public void RunTaskInitializeSerializers()
         {
-            if (m_taskInitializeSerializers == null
-                && (SpaceCore.ModTypes.Any() || this.HasPyTk))
+            if (m_taskInitializeSerializers == null)
             {
                 Log.Trace($"Reinitializing serializers for {SpaceCore.ModTypes.Count} mod types...");
                 m_taskInitializeSerializers = Task.Run(() =>
@@ -126,7 +125,7 @@ namespace SpaceCore.Framework
                 return;
 
             // waiting for task
-            m_taskInitializeSerializers.Wait();
+            m_taskInitializeSerializers?.Wait();
 
             // done
             this.InitializedSerializers = true;
