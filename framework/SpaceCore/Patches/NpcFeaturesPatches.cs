@@ -226,42 +226,47 @@ namespace SpaceCore.Patches
     {
         public static void Postfix(NPC __instance, ref bool __result)
         {
+            if (!NpcMarriageScheduleContextPatch.IsActive)
+                return;
+
             var dict = Game1.content.Load<Dictionary<string, NpcExtensionData>>("spacechase0.SpaceCore/NpcExtensionData");
             if (!dict.TryGetValue(__instance.Name, out var npcEntry))
                 return;
 
-            if (!npcEntry.IgnoreMarriageSchedule)
-                return;
+            if (npcEntry.IgnoreMarriageSchedule)
+                __result = false;
+        }
+    }
 
-            MethodBase[] meths = new[]
-            {
-                typeof(NPC).GetMethod(nameof(NPC.reloadData)),
-                typeof(NPC).GetMethod(nameof(NPC.reloadSprite)),
-                typeof(NPC).GetMethod(nameof(NPC.getHome)),
-                typeof(NPC).GetMethod("prepareToDisembarkOnNewSchedulePath"),
-                typeof(NPC).GetMethod(nameof(NPC.parseMasterSchedule)),
-                typeof(NPC).GetMethod(nameof(NPC.TryLoadSchedule), new Type[ 0 ]),
-                typeof(NPC).GetMethod(nameof(NPC.resetForNewDay)),
-                typeof(NPC).GetMethod(nameof(NPC.dayUpdate)),
-            };
+    [HarmonyPatch]
+    public static class NpcMarriageScheduleContextPatch
+    {
+        [ThreadStatic]
+        private static int depth;
 
-            // Fix bug on android
-            //var st = new System.Diagnostics.StackTrace();
-            //for (int i = 0; i < st.FrameCount; ++i) // Originally had 7 instead of FrameCount, but some mods interfere so we need to check further
-            //{
-            //    var meth = st.GetFrame(i).GetMethod();
-            //    foreach (var checkMeth in meths)
-            //    {
-            //        // When someone patches a method the method name changes due to SMAPI's custom fork of Harmony, and so the methodinfo doesn't match.
-            //        // This is a workaround
-            //        // Excuse the liberal use of ? - I was tired and frustrated
-            //        if ((meth?.DeclaringType == checkMeth?.DeclaringType || (meth?.Name?.Contains(checkMeth?.DeclaringType?.FullName ?? "qwerqwer") ?? false)) && (meth?.Name?.Contains(checkMeth?.Name ?? "asdfasdf") ?? false))
-            //        {
-            //            __result = false;
-            //            return;
-            //        }
-            //    }
-            //}
+        public static bool IsActive => depth > 0;
+
+        public static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.reloadData), Type.EmptyTypes);
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.reloadSprite), new[] { typeof(bool) });
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.getHome), Type.EmptyTypes);
+            yield return AccessTools.Method(typeof(NPC), "prepareToDisembarkOnNewSchedulePath", Type.EmptyTypes);
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.parseMasterSchedule), new[] { typeof(string), typeof(string) });
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.TryLoadSchedule), Type.EmptyTypes);
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.resetForNewDay), new[] { typeof(int) });
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.dayUpdate), new[] { typeof(int) });
+        }
+
+        public static void Prefix()
+        {
+            depth++;
+        }
+
+        public static Exception Finalizer(Exception __exception)
+        {
+            depth--;
+            return __exception;
         }
     }
 
@@ -284,12 +289,12 @@ namespace SpaceCore.Patches
                 Game1.player.spouse = "";
             }
         }
-        public static void Postfix(NPC __instance, ref string __state)
+        public static Exception Finalizer(ref string __state, Exception __exception)
         {
             if (__state != null)
-            {
                 Game1.player.spouse = __state;
-            }
+
+            return __exception;
         }
     }
 }
