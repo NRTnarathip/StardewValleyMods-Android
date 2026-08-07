@@ -170,21 +170,8 @@ namespace SpaceCore
         *********/
         /// <summary>The mod entry point, called after the mod is first loaded.</summary>
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
-        static SpaceCore()
-        {
-            Console.WriteLine("Init type SpaceCore");
-            Console.WriteLine("enable mono log level");
-            Environment.SetEnvironmentVariable("MONO_LOG_LEVEL", "debug");
-            Environment.SetEnvironmentVariable("MONO_LOG_MASK", "all");
-        }
-
         public override void Entry(IModHelper helper)
         {
-            //works fine
-            //Console.WriteLine("SpaeceCore try print stack trace");
-            //string stack = new StackTrace().ToString();
-            //Console.WriteLine(stack);
-
             this.LegacyDataMigrator = new LegacyDataMigrator(helper.Data, this.Monitor);
 
             I18n.Init(helper.Translation);
@@ -193,8 +180,10 @@ namespace SpaceCore
             Log.Monitor = this.Monitor;
             this.Config = helper.ReadConfig<Configuration>();
 
-            //fixme
-            //GatherLocals();
+            // The Android game assembly has no embedded portable PDB. Android
+            // transpilers resolve the required locals from IL types instead.
+            if (Constants.TargetPlatform != GamePlatform.Android)
+                this.GatherLocals();
 
             WarpPathfindingCache.IgnoreLocationNames.Add("VolcanoEntrance");
 

@@ -175,6 +175,9 @@ namespace SpaceCore.Patches
         /// <summary>The method to call before <see cref="SaveGame.GetSerializer"/>.</summary>
         private static bool Before_GetSerializer(Type type, ref XmlSerializer __result)
         {
+            if (!SaveGamePatcher.SerializerManager.HasCustomSerializers)
+                return true;
+
             __result = SaveGamePatcher.SerializerManager.InitializeSerializer(type);
             return false;
         }
@@ -449,24 +452,19 @@ namespace SpaceCore.Patches
                 ? SaveGamePatcher.SerializerManager.FarmerFilename
                 : SaveGamePatcher.SerializerManager.Filename;
 
-            // fix for android
-            #region AndroidFix
-            string saveGameName = Game1.GetSaveGameName();
-            string filenameNoTmpString = saveGameName + "_" + Game1.uniqueIDForThisGame;
-            string savesPath = AccessTools.Field(typeof(Game1), "savesPath").GetValue(null) as string;
-            string saveGameFolderFullPath = Path.Combine(savesPath, filenameNoTmpString);
-            if (Directory.Exists(saveGameFolderFullPath) is false)
+            string saveFolder = Constants.CurrentSavePath;
+            if (saveFolder == null)
             {
-                Directory.CreateDirectory(saveGameFolderFullPath);
+                string saveFolderName = Constants.SaveFolderName
+                    ?? $"{Game1.GetSaveGameName()}_{Game1.uniqueIDForThisGame}";
+                saveFolder = Path.Combine(Constants.SavesPath, saveFolderName);
             }
 
-            string writeTextAtFilePath = Path.Combine(saveGameFolderFullPath, filename);
-
+            Directory.CreateDirectory(saveFolder);
             File.WriteAllText(
-                writeTextAtFilePath,
+                Path.Combine(saveFolder, filename),
                 JsonConvert.SerializeObject(modNodes)
             );
-            #endregion
             Log.Info("Saved serialize proxy for obj: " + obj);
             //Log.trace( "Mid serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );
             //Log.trace( "End serialize\t" + System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 );

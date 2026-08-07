@@ -45,37 +45,26 @@ namespace SpaceCore.Patches
     [HarmonyPatch(typeof(NPC), "draw", new Type[] { typeof(SpriteBatch), typeof(float) })]
     public static class AnimatedSpriteDrawExtrasPatch3
     {
-        public static void getExtraValues(NPC who, ref Vector2 both, ref float x, ref float y, ref Color grad)
+        public static void getExtraValues(NPC who, ref Vector2 scale, ref Color grad)
         {
             var extras = SpaceCore.spriteExtras.GetOrCreateValue(who.Sprite);
-            both = extras.scale;
-            x = extras.scale.X;
-            y = extras.scale.Y;
+            scale = extras.scale;
             grad = (extras.grad != null ? extras.grad[extras.currGradInd] : Color.White);
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
         {
             LocalBuilder scale = generator.DeclareLocal(typeof(Vector2));
-            // Original
-            //LocalBuilder scaleX = generator.DeclareLocal(typeof(float));
-            //LocalBuilder scaleY = generator.DeclareLocal(typeof(float));
-            // New
-            LocalBuilder scaleX = generator.DeclareLocal(typeof(int));
-            LocalBuilder scaleY = generator.DeclareLocal(typeof(int));
             LocalBuilder gradColor = generator.DeclareLocal(typeof(Color));
 
             var orig = new List<CodeInstruction>(instructions);
             var ret = new List<CodeInstruction>(){
                 new(OpCodes.Ldarg_0),
                 new(OpCodes.Ldloca, scale),
-                new(OpCodes.Ldloca, scaleX),
-                new(OpCodes.Ldloca, scaleY),
                 new(OpCodes.Ldloca, gradColor),
-                new(OpCodes.Call, typeof(AnimatedSpriteDrawExtrasPatch3).GetMethod("getExtraValues", BindingFlags.Public | BindingFlags.Static)),
+                new(OpCodes.Call, typeof(AnimatedSpriteDrawExtrasPatch3).GetMethod(nameof(getExtraValues), BindingFlags.Public | BindingFlags.Static)),
             };
 
-            int scaleCount = 0;
             int whiteCount = 0;
             int whiteSkip = 0;
             int vecCount = 0;
@@ -104,7 +93,7 @@ namespace SpaceCore.Patches
                 }
                 // replace a call to SpriteBatch.Draw (use a different overload).
                 // it's the third one
-                if (drawCount < 3 && orig[i].opcode == OpCodes.Callvirt && (orig[i].operand as MethodInfo).Name.Equals("Draw"))
+                if (drawCount < 3 && orig[i].opcode == OpCodes.Callvirt && (orig[i].operand as MethodInfo)?.Name == nameof(SpriteBatch.Draw))
                 {
                     ++drawCount;
                     if (drawSkip > 0)
@@ -119,19 +108,7 @@ namespace SpaceCore.Patches
                     }
                     continue;
                 }
-
                 ret.Add(orig[i]);
-                // append an extra scale multiplier to the first three *4
-                // operations we find. Y, X, Y, in that order.
-                if (i > 0 && scaleCount < 3 && orig[i - 1].opcode == OpCodes.Ldc_I4_4 && orig[i].opcode == OpCodes.Mul)
-                {
-                    ++scaleCount;
-                    Log.Trace($"NPC.draw: inserting mul at {i}");
-                    ret.AddRange(new List<CodeInstruction>(){
-                        new(OpCodes.Ldloc, (scaleCount == 2 ? scaleX : scaleY)),
-                        new(OpCodes.Mul),
-                    });
-                }
                 // append a multiply by the vector2 extras.scale. this is why
                 // we had to change the Draw overload
                 if (i > 0 && vecCount < 2 && orig[i - 1].opcode == OpCodes.Ldc_R4 && orig[i - 1].operand.Equals(4f) && orig[i].opcode == OpCodes.Mul)
@@ -152,7 +129,7 @@ namespace SpaceCore.Patches
                 }
             }
 
-            if (scaleCount < 3 || whiteCount < 3 || vecCount < 2 || drawCount < 3)
+            if (whiteCount < 3 || vecCount < 2 || drawCount < 3)
             {
                 Log.Error($"NPC.draw: some transpiler targets were not found. Aborting edit.");
                 return orig;
@@ -182,7 +159,7 @@ namespace SpaceCore.Patches
                 new(OpCodes.Ldarg_0),
                 new(OpCodes.Ldloca, scale),
                 new(OpCodes.Ldloca, gradColor),
-                new(OpCodes.Call, typeof(AnimatedSpriteDrawExtrasPatch4).GetMethod("getExtraValues", BindingFlags.Public | BindingFlags.Static)),
+                new(OpCodes.Call, typeof(AnimatedSpriteDrawExtrasPatch4).GetMethod(nameof(getExtraValues), BindingFlags.Public | BindingFlags.Static)),
             };
 
             int whiteCount = 0;
@@ -199,7 +176,14 @@ namespace SpaceCore.Patches
                 }
                 // add an extra vec2 multiply and vec2 add after applying
                 // breathScale
-                else if (i > 1 && scaleCount < 1 && orig[i - 2].opcode == OpCodes.Ldc_R4 && orig[i - 2].operand.Equals(4f) && orig[i - 1].opcode == OpCodes.Mul && orig[i].opcode == OpCodes.Ldloc_S && (orig[i].operand as LocalBuilder).LocalIndex == 5)
+                else if (i > 1
+                    && scaleCount < 1
+                    && orig[i - 2].opcode == OpCodes.Ldc_R4
+                    && Equals(orig[i - 2].operand, 4f)
+                    && orig[i - 1].opcode == OpCodes.Mul
+                    && orig[i].opcode == OpCodes.Ldloc_S
+                    && orig[i].operand is LocalBuilder breathScale
+                    && breathScale.LocalType == typeof(float))
                 {
                     ++scaleCount;
                     Log.Trace($"NPC.DrawBreathing: inserting vec2 mul/add at {i}");
@@ -215,7 +199,7 @@ namespace SpaceCore.Patches
                 }
                 // scale param is a vec2 now, so use a different overload for
                 // SpriteBatch.Draw
-                else if (drawCount < 1 && orig[i].opcode == OpCodes.Callvirt && (orig[i].operand as MethodInfo).Name.Equals("Draw"))
+                else if (drawCount < 1 && orig[i].opcode == OpCodes.Callvirt && (orig[i].operand as MethodInfo)?.Name == nameof(SpriteBatch.Draw))
                 {
                     ++drawCount;
                     Log.Trace($"NPC.DrawBreathing: replacing Draw at {i}");
@@ -242,42 +226,47 @@ namespace SpaceCore.Patches
     {
         public static void Postfix(NPC __instance, ref bool __result)
         {
+            if (!NpcMarriageScheduleContextPatch.IsActive)
+                return;
+
             var dict = Game1.content.Load<Dictionary<string, NpcExtensionData>>("spacechase0.SpaceCore/NpcExtensionData");
             if (!dict.TryGetValue(__instance.Name, out var npcEntry))
                 return;
 
-            if (!npcEntry.IgnoreMarriageSchedule)
-                return;
+            if (npcEntry.IgnoreMarriageSchedule)
+                __result = false;
+        }
+    }
 
-            MethodBase[] meths = new[]
-            {
-                typeof(NPC).GetMethod(nameof(NPC.reloadData)),
-                typeof(NPC).GetMethod(nameof(NPC.reloadSprite)),
-                typeof(NPC).GetMethod(nameof(NPC.getHome)),
-                typeof(NPC).GetMethod("prepareToDisembarkOnNewSchedulePath"),
-                typeof(NPC).GetMethod(nameof(NPC.parseMasterSchedule)),
-                typeof(NPC).GetMethod(nameof(NPC.TryLoadSchedule), new Type[ 0 ]),
-                typeof(NPC).GetMethod(nameof(NPC.resetForNewDay)),
-                typeof(NPC).GetMethod(nameof(NPC.dayUpdate)),
-            };
+    [HarmonyPatch]
+    public static class NpcMarriageScheduleContextPatch
+    {
+        [ThreadStatic]
+        private static int depth;
 
-            // Fix bug on android
-            //var st = new System.Diagnostics.StackTrace();
-            //for (int i = 0; i < st.FrameCount; ++i) // Originally had 7 instead of FrameCount, but some mods interfere so we need to check further
-            //{
-            //    var meth = st.GetFrame(i).GetMethod();
-            //    foreach (var checkMeth in meths)
-            //    {
-            //        // When someone patches a method the method name changes due to SMAPI's custom fork of Harmony, and so the methodinfo doesn't match.
-            //        // This is a workaround
-            //        // Excuse the liberal use of ? - I was tired and frustrated
-            //        if ((meth?.DeclaringType == checkMeth?.DeclaringType || (meth?.Name?.Contains(checkMeth?.DeclaringType?.FullName ?? "qwerqwer") ?? false)) && (meth?.Name?.Contains(checkMeth?.Name ?? "asdfasdf") ?? false))
-            //        {
-            //            __result = false;
-            //            return;
-            //        }
-            //    }
-            //}
+        public static bool IsActive => depth > 0;
+
+        public static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.reloadData), Type.EmptyTypes);
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.reloadSprite), new[] { typeof(bool) });
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.getHome), Type.EmptyTypes);
+            yield return AccessTools.Method(typeof(NPC), "prepareToDisembarkOnNewSchedulePath", Type.EmptyTypes);
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.parseMasterSchedule), new[] { typeof(string), typeof(string) });
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.TryLoadSchedule), Type.EmptyTypes);
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.resetForNewDay), new[] { typeof(int) });
+            yield return AccessTools.Method(typeof(NPC), nameof(NPC.dayUpdate), new[] { typeof(int) });
+        }
+
+        public static void Prefix()
+        {
+            depth++;
+        }
+
+        public static Exception Finalizer(Exception __exception)
+        {
+            depth--;
+            return __exception;
         }
     }
 
@@ -300,12 +289,12 @@ namespace SpaceCore.Patches
                 Game1.player.spouse = "";
             }
         }
-        public static void Postfix(NPC __instance, ref string __state)
+        public static Exception Finalizer(ref string __state, Exception __exception)
         {
             if (__state != null)
-            {
                 Game1.player.spouse = __state;
-            }
+
+            return __exception;
         }
     }
 }

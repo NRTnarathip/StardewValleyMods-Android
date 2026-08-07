@@ -1,8 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-using System.Reflection.Emit;
 using HarmonyLib;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -10,7 +7,6 @@ using Spacechase.Shared.Patching;
 using SpaceShared;
 using StardewModdingAPI;
 using StardewValley;
-using StardewValley.Enchantments;
 using StardewValley.Menus;
 using StardewValley.Objects;
 
@@ -32,10 +28,6 @@ namespace SpaceCore.Patches
         /// <inheritdoc />
         public override void Apply(Harmony harmony, IMonitor monitor)
         {
-            // not support on Android
-            if (Constants.TargetPlatform == GamePlatform.Android)
-                return;
-
             harmony.Patch(
                 original: this.RequireMethod<ForgeMenu>(nameof(ForgeMenu.GenerateHighlightDictionary)),
                 postfix: this.GetHarmonyMethod(nameof(After_GenerateHighlightDictionary))
@@ -68,12 +60,12 @@ namespace SpaceCore.Patches
 
             harmony.Patch(
                 original: this.RequireMethod<ForgeMenu>("_leftIngredientSpotClicked"),
-                transpiler: this.GetHarmonyMethod(nameof(Transpile__leftIngredientSpotClicked))
+                prefix: this.GetHarmonyMethod(nameof(Before_LeftIngredientSpotClicked))
             );
 
             harmony.Patch(
                 original: this.RequireMethod<ForgeMenu>(nameof(ForgeMenu.draw), new[] { typeof(SpriteBatch) }),
-                transpiler: this.GetHarmonyMethod(nameof(Transpile_Draw))
+                postfix: this.GetHarmonyMethod(nameof(After_Draw))
             );
         }
 
@@ -81,7 +73,7 @@ namespace SpaceCore.Patches
         /*********
         ** Private methods
         *********/
-        /// <summary>The method to call before <see cref="ForgeMenu.GenerateHighlightDictionary"/>.</summary>
+        /// <summary>The method to call after <see cref="ForgeMenu.GenerateHighlightDictionary"/>.</summary>
         private static void After_GenerateHighlightDictionary(ForgeMenu __instance)
         {
             var this__highlightDictionary_ = SpaceCore.Instance.Helper.Reflection.GetField<Dictionary<Item, bool>>(__instance, "_highlightDictionary");
@@ -199,71 +191,62 @@ namespace SpaceCore.Patches
             return true;
         }
 
-        /// <summary>The method which transpiles <see cref="ForgeMenu.draw(SpriteBatch)"/>.</summary>
-        private static IEnumerable<CodeInstruction> Transpile__leftIngredientSpotClicked(MethodBase original, IEnumerable<CodeInstruction> instructions, ILGenerator ilgen)
+        /// <summary>Handles custom left ingredients which the base menu restricts to tools and rings.</summary>
+        /// <returns>Returns whether to run the original method.</returns>
+        private static bool Before_LeftIngredientSpotClicked(ForgeMenu __instance)
         {
-            List<CodeInstruction> insns = new();
-            insns.AddRange(instructions);
+            Item heldItem = __instance.heldItem;
+            if (heldItem == null || heldItem is Tool or Ring || !IsLeftCraftIngredient(heldItem))
+                return true;
 
-            for (int i = 0; i < insns.Count - 1; ++i)
+            Item previousItem = __instance.leftIngredientSpot.item;
+            int inventoryIndex = __instance.inventory.dragItem != -1
+                ? __instance.inventory.dragItem
+                : __instance.inventory.currentlySelectedItem;
+            if (inventoryIndex != -1)
             {
-                if (insns[i].opcode == OpCodes.Ret)
-                    insns[i].opcode = OpCodes.Nop;
+                Utility.removeItemFromInventory(inventoryIndex, __instance.inventory.actualInventory);
             }
 
-            return insns;
-        }
-
-
-        /// <summary>The method which transpiles <see cref="ForgeMenu.draw(SpriteBatch)"/>.</summary>
-        private static IEnumerable<CodeInstruction> Transpile_Draw(MethodBase original, IEnumerable<CodeInstruction> instructions, ILGenerator ilgen)
-        {
-            var insns = instructions.MethodReplacer(
-                from: PatchHelper.RequireMethod<ForgeMenu>(nameof(ForgeMenu.GetForgeCost)),
-                to: PatchHelper.RequireMethod<ForgeMenuPatcher>(nameof(GetAndDrawCost))
-            );
-
-            List<CodeInstruction> ret = new();
-            foreach (var insn in insns)
+            __instance.inventory.currentlySelectedItem = -1;
+            __instance.inventory.dragItem = -1;
+            __instance.leftIngredientSpot.item = heldItem;
+            __instance.heldItem = previousItem;
+            if (previousItem != null)
             {
-                if (insn.opcode == OpCodes.Ldfld && (insn.operand as FieldInfo).Name == "equipmentIcons")
-                {
-                    int insertAt = ret.Count; // Weird spot to add my instructions (in between a ldloc0 and using it), but it works well with the label nonsense going on
-
-                    Label label1 = ilgen.DefineLabel();
-                    Label label2 = ilgen.DefineLabel();
-                    insn.labels.Add(label2);
-
-                    ret.InsertRange(insertAt,
-                        new CodeInstruction[]
-                        {
-                            new CodeInstruction(OpCodes.Ldloc_3),
-                            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ForgeMenuPatcher), nameof(IsLeftCraftIngredient))),
-                            new CodeInstruction(OpCodes.Brfalse, label1),
-                            new CodeInstruction(OpCodes.Ldc_I4_1),
-                            new CodeInstruction(OpCodes.Stloc_1),
-                            new CodeInstruction(OpCodes.Ldloc_3) { labels = { label1 } },
-                            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ForgeMenuPatcher), nameof(IsRightCraftIngredient))),
-                            new CodeInstruction(OpCodes.Brfalse, label2),
-                            new CodeInstruction(OpCodes.Ldc_I4_1),
-                            new CodeInstruction(OpCodes.Stloc_2),
-                        });
-                }
-
-                ret.Add(insn);
+                Utility.CollectOrDrop(previousItem);
+                __instance.heldItem = null;
+                __instance.inventory.currentlySelectedItem = -1;
+                __instance.inventory.GamePadHideInfoPanel();
             }
 
-            return ret;
+            SpaceCore.Instance.Helper.Reflection
+                .GetField<Dictionary<Item, bool>>(__instance, "_highlightDictionary")
+                .SetValue(null);
+            SpaceCore.Instance.Helper.Reflection
+                .GetMethod(__instance, "_ValidateCraft")
+                .Invoke();
+            Game1.playSound("stoneStep");
+            return false;
         }
 
-        private static int GetAndDrawCost(ForgeMenu forgeMenu, Item leftItem, Item rightItem)
+        /// <summary>Draws forge costs which have no built-in texture variant.</summary>
+        private static void After_Draw(ForgeMenu __instance, SpriteBatch b)
         {
-            int cost = forgeMenu.GetForgeCost(forgeMenu.leftIngredientSpot.item, forgeMenu.rightIngredientSpot.item);
+            Item leftItem = __instance.leftIngredientSpot.item;
+            Item rightItem = __instance.rightIngredientSpot.item;
+            if (leftItem == null || rightItem == null || !__instance.IsValidCraft(leftItem, rightItem))
+                return;
 
+            int cost = __instance.GetForgeCost(leftItem, rightItem);
             if (cost is not (10 or 15 or 20))
-                Game1.spriteBatch.DrawString(Game1.dialogueFont, "x" + cost, new Vector2(forgeMenu.xPositionOnScreen + 345, forgeMenu.yPositionOnScreen + 320), new Color(226, 124, 65));
-
-            return cost;
+            {
+                Vector2 position = new(
+                    __instance.rightIngredientSpot.bounds.X - 4,
+                    __instance.rightIngredientSpot.bounds.Y + 108
+                );
+                b.DrawString(Game1.dialogueFont, $"x{cost}", position, new Color(226, 124, 65));
+            }
         }
 
         private static bool IsLeftCraftIngredient(Item item)

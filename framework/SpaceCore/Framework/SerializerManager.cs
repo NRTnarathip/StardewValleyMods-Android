@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using SpaceCore.Patches;
@@ -29,6 +30,10 @@ namespace SpaceCore.Framework
         /// <summary>Whether SpaceCore's custom types have been added to the <see cref="SaveGame"/> serializers.</summary>
         private bool InitializedSerializers;
 
+        private readonly object SerializerInitializationLock = new();
+
+        private Task SerializerInitializationTask;
+
         // Update these each game update
         private readonly Type[] VanillaMainTypes =
         {
@@ -47,11 +52,6 @@ namespace SpaceCore.Framework
             typeof(Character),
             typeof(Item),
             typeof(TerrainFeature)
-        };
-        private readonly Type[] VanillaDescriptionElementTypes =
-        {
-            typeof(Character),
-            typeof(Item)
         };
         private readonly Type[] VanillaLegacyDescriptionElementTypes =
         {
@@ -81,81 +81,93 @@ namespace SpaceCore.Framework
             this.HasPyTk = modRegistry.IsLoaded("Platonymous.Toolkit");
         }
 
-        Task? m_taskInitializeSerializers;
+        public bool HasCustomSerializers => SpaceCore.ModTypes.Count > 0 || this.HasPyTk;
+
         public void RunTaskInitializeSerializers()
         {
-            if (m_taskInitializeSerializers == null)
+            if (!this.HasCustomSerializers || this.SerializerInitializationTask != null)
+                return;
+
+            lock (this.SerializerInitializationLock)
             {
+                if (this.SerializerInitializationTask != null)
+                    return;
+
                 Log.Trace($"Reinitializing serializers for {SpaceCore.ModTypes.Count} mod types...");
-                m_taskInitializeSerializers = Task.Run(() =>
-                {
-                    var task1 = Task.Run(() =>
-                    {
-                        InitializeSerializer(typeof(SaveGame), this.VanillaMainTypes);
-                        Log.Info("done init SaveGame.serializer ");
-                    });
-                    var task2 = Task.Run(() =>
-                    {
-                        InitializeSerializer(typeof(Farmer), this.VanillaFarmerTypes);
-                        Log.Info("done init SaveGame.farmerSerializer ");
-                    });
-                    var task3 = Task.Run(() =>
-                    {
-                        InitializeSerializer(typeof(GameLocation), this.VanillaGameLocationTypes);
-                        Log.Info("done init SaveGame.locationSerializer ");
-                    });
-                    var task4 = Task.Run(() =>
-                    {
-                        InitializeSerializer(typeof(DescriptionElement), this.VanillaDescriptionElementTypes);
-                        Log.Info("done init SaveGame.descriptionElementSerializer ");
-                    });
-                    var task5 = Task.Run(() =>
-                    {
-                        InitializeSerializer(typeof(DescriptionElement), this.VanillaLegacyDescriptionElementTypes);
-                        Log.Info("done init SaveGame.legacyDescriptionElementSerializer ");
-                    });
-                    Task.WaitAll(task1, task2, task3, task4, task5);
-                });
+                this.SerializerInitializationTask = Task.WhenAll(
+                    Task.Run(() => this.InitializeSerializer(typeof(SaveGame), this.VanillaMainTypes)),
+                    Task.Run(() => this.InitializeSerializer(typeof(Farmer), this.VanillaFarmerTypes)),
+                    Task.Run(() => this.InitializeSerializer(typeof(GameLocation), this.VanillaGameLocationTypes)),
+                    Task.Run(() => this.InitializeSerializer(typeof(DescriptionElement), this.VanillaLegacyDescriptionElementTypes))
+                );
             }
         }
+
         public void InitializeSerializers()
         {
             // skip if already initialized
             if (this.InitializedSerializers)
                 return;
 
-            // waiting for task
-            m_taskInitializeSerializers?.Wait();
+            if (!this.HasCustomSerializers)
+            {
+                this.InitializedSerializers = true;
+                return;
+            }
+
+            this.RunTaskInitializeSerializers();
+            this.SerializerInitializationTask.GetAwaiter().GetResult();
 
             // done
             this.InitializedSerializers = true;
             Game1.otherFarmers.Serializer = SaveSerializer.GetSerializer(typeof(Farmer));
         }
 
-        private ConcurrentDictionary<Type, XmlSerializer> serializersAlreadyDone = new();
+        private readonly ConcurrentDictionary<Type, Lazy<XmlSerializer>> Serializers = new();
 
-        object NotifyPyTK_Lock = new object();
+        private readonly object NotifyPyTKLock = new();
+
         public XmlSerializer InitializeSerializer(Type baseType, Type[] extra = null)
         {
-            //Console.WriteLine($"on getting InitializeSerializer: baseType: {baseType}");
-            if (serializersAlreadyDone.TryGetValue(baseType, out var tryGetValue))
-                return tryGetValue;
+            Type[] knownTypes = (extra ?? this.GetVanillaTypes(baseType))
+                .Concat(SpaceCore.ModTypes)
+                .Distinct()
+                .ToArray();
 
-            var types = extra?.Length > 0
-                ? extra.Concat(SpaceCore.ModTypes)
-                : SpaceCore.ModTypes;
-
-            XmlSerializer serializer = new(baseType, types.ToArray());
-            serializersAlreadyDone.TryAdd(baseType, serializer);
-            lock (NotifyPyTK_Lock)
-                this.NotifyPyTk(serializer);
-            return serializer;
+            return this.Serializers.GetOrAdd(
+                baseType,
+                _ => new Lazy<XmlSerializer>(
+                    () => this.CreateSerializer(baseType, knownTypes),
+                    LazyThreadSafetyMode.ExecutionAndPublication
+                )
+            ).Value;
         }
 
 
         /*********
         ** Private methods
         *********/
+        private XmlSerializer CreateSerializer(Type baseType, Type[] knownTypes)
+        {
+            XmlSerializer serializer = new(baseType, knownTypes);
+            lock (this.NotifyPyTKLock)
+                this.NotifyPyTk(serializer);
+            return serializer;
+        }
+
+        private Type[] GetVanillaTypes(Type baseType)
+        {
+            if (baseType == typeof(SaveGame))
+                return this.VanillaMainTypes;
+            if (baseType == typeof(Farmer))
+                return this.VanillaFarmerTypes;
+            if (baseType == typeof(GameLocation))
+                return this.VanillaGameLocationTypes;
+            if (baseType == typeof(DescriptionElement))
+                return this.VanillaLegacyDescriptionElementTypes;
+            return Array.Empty<Type>();
+        }
+
         /// <summary>Notify PyTK that the serializers were changed, if it's installed.</summary>
         /// <param name="serializer">The XML serializer which changed.</param>
         private void NotifyPyTk(XmlSerializer serializer)
