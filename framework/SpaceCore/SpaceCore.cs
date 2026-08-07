@@ -180,8 +180,10 @@ namespace SpaceCore
             Log.Monitor = this.Monitor;
             this.Config = helper.ReadConfig<Configuration>();
 
-            //fixme
-            //GatherLocals();
+            // The Android game assembly has no embedded portable PDB. Android
+            // transpilers resolve the required locals from IL types instead.
+            if (Constants.TargetPlatform != GamePlatform.Android)
+                this.GatherLocals();
 
             WarpPathfindingCache.IgnoreLocationNames.Add("VolcanoEntrance");
 
