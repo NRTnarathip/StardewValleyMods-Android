@@ -175,6 +175,9 @@ namespace SpaceCore.Patches
         /// <summary>The method to call before <see cref="SaveGame.GetSerializer"/>.</summary>
         private static bool Before_GetSerializer(Type type, ref XmlSerializer __result)
         {
+            if (!SaveGamePatcher.SerializerManager.HasCustomSerializers)
+                return true;
+
             __result = SaveGamePatcher.SerializerManager.InitializeSerializer(type);
             return false;
         }
