@@ -30,13 +30,8 @@ internal class SkillBuffPatcher : BasePatcher
             postfix: this.GetHarmonyMethod(nameof(After_BuffsDisplay_GetClickableComponents))
         );
 
-        // not support Transpile_IClickableMenu_DrawHoverText 
-        if (Constants.TargetPlatform == GamePlatform.Android)
-            return;
-
-        // fixme
         harmony.Patch(
-            original: this.RequireMethod<IClickableMenu>(nameof(IClickableMenu.drawHoverText), new Type[] { typeof(SpriteBatch), typeof(StringBuilder), typeof(SpriteFont), typeof(int), typeof(int), typeof(int), typeof(string), typeof(int), typeof(string[]), typeof(Item), typeof(int), typeof(string), typeof(int), typeof(int), typeof(int), typeof(float), typeof(CraftingRecipe), typeof(List<Item>), typeof(Texture2D), typeof(Rectangle?), typeof(Color?), typeof(Color?), typeof(float), typeof(int), typeof(int) }),
+            original: this.RequireMethod<IClickableMenu>(nameof(IClickableMenu.drawHoverText), new Type[] { typeof(SpriteBatch), typeof(StringBuilder), typeof(SpriteFont), typeof(int), typeof(int), typeof(int), typeof(string), typeof(int), typeof(string[]), typeof(Item), typeof(int), typeof(string), typeof(int), typeof(int), typeof(int), typeof(float), typeof(CraftingRecipe), typeof(IList<Item>), typeof(Texture2D), typeof(Rectangle?), typeof(Color?), typeof(Color?), typeof(float), typeof(int), typeof(int), typeof(int) }),
             transpiler: this.GetHarmonyMethod(nameof(Transpile_IClickableMenu_DrawHoverText))
         );
     }
@@ -131,6 +126,11 @@ internal class SkillBuffPatcher : BasePatcher
     private static IEnumerable<CodeInstruction> Transpile_IClickableMenu_DrawHoverText(ILGenerator gen, MethodBase original, IEnumerable<CodeInstruction> il)
     {
         var matcher = new CodeMatcher(il);
+        bool isAndroid = Constants.TargetPlatform == GamePlatform.Android;
+        int widthLocal = isAndroid ? 2 : 1;
+        int heightLocal = isAndroid ? 3 : 2;
+        int xLocal = isAndroid ? 6 : 5;
+        int yLocal = isAndroid ? 7 : 6;
 
         matcher.Start();
 
@@ -145,9 +145,9 @@ internal class SkillBuffPatcher : BasePatcher
         matcher.InsertAndAdvance(
             new(OpCodes.Ldarg_S, 8),
             new(OpCodes.Ldarg_S, 9),
-            new(OpCodes.Ldloc_2),
+            new(OpCodes.Ldloc, heightLocal),
             CodeInstruction.Call(typeof(SkillBuffPatcher), nameof(SkillBuffPatcher.GetHeightAdjustment)),
-            new(OpCodes.Stloc_2));
+            new(OpCodes.Stloc, heightLocal));
 
         // Check to set HoverText TextureBox minimum width:
 
@@ -160,9 +160,9 @@ internal class SkillBuffPatcher : BasePatcher
         matcher.InsertAndAdvance(
             new(OpCodes.Ldarg_S, 2),
             new(OpCodes.Ldarg_S, 9),
-            new(OpCodes.Ldloc_1),
+            new(OpCodes.Ldloc, widthLocal),
             CodeInstruction.Call(typeof(SkillBuffPatcher), nameof(GetWidthAdjustment)),
-            new(OpCodes.Stloc_1));
+            new(OpCodes.Stloc, widthLocal));
 
         // Draw SkillBuff custom skill buff effects:
 
@@ -181,10 +181,10 @@ internal class SkillBuffPatcher : BasePatcher
             new(OpCodes.Ldarg_S, 0),
             new(OpCodes.Ldarg_S, 2),
             new(OpCodes.Ldarg_S, 9),
-            new(OpCodes.Ldloc, 5),
-            new(OpCodes.Ldloc, 6),
+            new(OpCodes.Ldloc, xLocal),
+            new(OpCodes.Ldloc, yLocal),
             CodeInstruction.Call(typeof(SkillBuffPatcher), nameof(DrawAdditionalBuffEffects)),
-            new(OpCodes.Stloc, 6));
+            new(OpCodes.Stloc, yLocal));
 
         // optional divider ( | skills + attributes):
 
@@ -197,13 +197,13 @@ internal class SkillBuffPatcher : BasePatcher
             new(OpCodes.Ldarg_S, 0),
             new(OpCodes.Ldarg_S, 2),
             new(OpCodes.Ldarg_S, 9),
-            new(OpCodes.Ldloc, 5),
-            new(OpCodes.Ldloc, 6),
-            new(OpCodes.Ldloc, 1),
+            new(OpCodes.Ldloc, xLocal),
+            new(OpCodes.Ldloc, yLocal),
+            new(OpCodes.Ldloc, widthLocal),
             new(OpCodes.Ldarg_S, 8),
             new(OpCodes.Ldarg_S, 16),
             CodeInstruction.Call(typeof(SkillBuffPatcher), nameof(DrawCustomSkillBuffEffectsIfNoBasicEffects)),
-            new(OpCodes.Stloc, 6));
+            new(OpCodes.Stloc, yLocal));
 
         // below the divider (skills + attributes):
 
@@ -218,10 +218,10 @@ internal class SkillBuffPatcher : BasePatcher
             new(OpCodes.Ldarg_S, 0),
             new(OpCodes.Ldarg_S, 2),
             new(OpCodes.Ldarg_S, 9),
-            new(OpCodes.Ldloc, 5),
-            new(OpCodes.Ldloc, 6),
+            new(OpCodes.Ldloc, xLocal),
+            new(OpCodes.Ldloc, yLocal),
             CodeInstruction.Call(typeof(SkillBuffPatcher), nameof(DrawCustomSkillBuffEffects)),
-            new(OpCodes.Stloc, 6));
+            new(OpCodes.Stloc, yLocal));
 
         if (matcher.IsInvalid)
         {
