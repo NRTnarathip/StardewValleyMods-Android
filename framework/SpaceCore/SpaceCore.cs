@@ -170,21 +170,8 @@ namespace SpaceCore
         *********/
         /// <summary>The mod entry point, called after the mod is first loaded.</summary>
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
-        static SpaceCore()
-        {
-            Console.WriteLine("Init type SpaceCore");
-            Console.WriteLine("enable mono log level");
-            Environment.SetEnvironmentVariable("MONO_LOG_LEVEL", "debug");
-            Environment.SetEnvironmentVariable("MONO_LOG_MASK", "all");
-        }
-
         public override void Entry(IModHelper helper)
         {
-            //works fine
-            //Console.WriteLine("SpaeceCore try print stack trace");
-            //string stack = new StackTrace().ToString();
-            //Console.WriteLine(stack);
-
             this.LegacyDataMigrator = new LegacyDataMigrator(helper.Data, this.Monitor);
 
             I18n.Init(helper.Translation);
